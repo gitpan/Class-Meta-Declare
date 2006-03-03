@@ -14,11 +14,11 @@ Class::Meta::Declare - Simple Class::Meta interface
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 =head1 SYNOPSIS
 
@@ -282,8 +282,10 @@ $TYPE_CLASS_FOR{$TYPE_STRING}  = 'Class::Meta::Types::String';
 $TYPE_CLASS_FOR{$TYPE_BOOL}    = 'Class::Meta::Types::Boolean';
 $TYPE_CLASS_FOR{$TYPE_BOOLEAN} = 'Class::Meta::Types::Boolean';
 
-foreach my $type ( $TYPE_WHOLE, $TYPE_INTEGER, $TYPE_DECIMAL, $TYPE_REAL,
-    $TYPE_FLOAT )
+foreach my $type (
+    $TYPE_WHOLE, $TYPE_INTEGER, $TYPE_DECIMAL, $TYPE_REAL,
+    $TYPE_FLOAT
+  )
 {
     $TYPE_CLASS_FOR{$type} = 'Class::Meta::Types::Numeric';
 }
@@ -526,13 +528,20 @@ sub _add_attributes {
         $definition_for->{type} = $TYPE_SCALAR
           unless exists $definition_for->{type};
 
+        # figure out the class for the type
+        my $type_class = $TYPE_CLASS_FOR{ $definition_for->{type} };
+        unless ($type_class) {
+            my $class = Class::Meta->for_key( $definition_for->{type} );
+            $type_class = $class->package if $class;
+        }
+        $self->_croak("Could not find type class for $definition_for->{type}")
+          unless defined $type_class;
+
         # set attribute interface type (e.g., 'affordance')
-        my $type_class = $TYPE_CLASS_FOR{ $definition_for->{type} }
-          or $self->_croak(
-            "Could not find type class for $definition_for->{type}");
         unless ( $self->installed_types($type_class) ) {
             my $accessors = $self->accessors;
-            eval "use $type_class '$accessors'";
+            $accessors = "'$accessors'" if $accessors;
+            eval "use $type_class $accessors";
             if ( my $error = $@ ) {
                 $self->_croak("Could not load $type_class: $error");
             }
@@ -541,13 +550,13 @@ sub _add_attributes {
 
         # add the attributes
         if ( exists $definition_for->{code} ) {
-            $self->_install_attribute_code( $attribute,
-                delete $definition_for->{code} );
+            $self->_install_attribute_code(
+                $attribute,
+                delete $definition_for->{code}
+            );
             $definition_for->{create} = $CREATE_NONE;
         }
 
-        #use Data::Dumper::Simple;
-        #main::diag Dumper( $definition_for );
         eval { $self->cm->add_attribute(%$definition_for) };
         if ( my $error = $@ ) {
             $self->_croak("Setting attribute for $attribute failed: $error");
@@ -561,8 +570,8 @@ sub _add_methods {
 
     while ( my $name = shift @$methods ) {
         my $definition_for = shift @$methods;
-        if (exists $definition_for->{code}) {
-            
+        if ( exists $definition_for->{code} ) {
+
             # the "code" slot is not required as the sub may already exist via
             # direct implementation or via "autoload".
             $self->_install_method( $name, delete $definition_for->{code} );
@@ -737,7 +746,6 @@ Calling package.
 C<Class::Meta>
 
 =back
-
 
 =head2 constructors
 
@@ -948,6 +956,37 @@ their values pointing to their corresponding methods.
 
 For the code above, you may then access the attribute via
 C<< $object->password >> and C<< $object->set_password($password) >>.
+
+=head3 Custom Types
+
+You may find the built-in list of types insufficient for your needs.  For
+example, you may wish to create an accessor which only accepts types of class
+C<Customer>.  In this case, C<Customer> should be a C<Class::Meta> or
+C<Class::Meta::Declare> class and should be loaded prior to C<new> being
+called.  C<type> should then point to the C<Customer> key.
+
+ Class::Meta::Declare->new(
+     meta => [
+        key     => 'customer',
+        package => 'Customer',
+     ],
+     @customer_attributes,
+     @customer_methods
+ );
+
+And later:
+
+ Class::Meta::Declare->new(
+     meta => [
+         key     => 'some_key',
+         package => 'Some::Package',
+     ],
+     attributes => [
+         cust => {
+             type => 'customer',
+         }
+     ]
+ );
 
 =head2 methods
 
