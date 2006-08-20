@@ -10,17 +10,21 @@ use Class::BuildMethods qw/
 
 =head1 NAME
 
-Class::Meta::Declare - Simple Class::Meta interface
+Class::Meta::Declare - Deprecated in favor of Class::Meta::Express
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 SYNOPSIS
+
+This was a first attempt at making a saner interface for
+L<Class::Meta|Class::Meta>.  It I<is> nicer, but
+L<Class::Meta::Express|Class::Meta::Express> is nicer still.  Go use that one.
 
  package MyApp::Thingy;
  use Class::Meta::Declare ':all';
